@@ -11,5 +11,5 @@ package "lean4-polyhedral-combinatorics" where
 require "leanprover-community" / "mathlib"
 
 @[default_target]
-lean_lib «Lean4PolyhedralCombinatorics» where
+lean_lib «PolyhedralCombinatorics» where
   -- add any library configuration options here
