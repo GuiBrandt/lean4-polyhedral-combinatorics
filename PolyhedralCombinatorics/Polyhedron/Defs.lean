@@ -49,7 +49,9 @@ def empty : Polyhedron 𝔽 n :=
     | 1, _ => -1
   let b : Fin 2 → 𝔽 := ![-1, 0]
   of A b
+
 instance : EmptyCollection (Polyhedron 𝔽 n) := ⟨empty⟩
+
 instance : Bot (Polyhedron 𝔽 n) := ⟨empty⟩
 
 /-- The universe polyhedron (`𝔽^n`). -/

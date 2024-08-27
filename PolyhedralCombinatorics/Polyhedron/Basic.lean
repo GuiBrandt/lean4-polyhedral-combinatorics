@@ -39,131 +39,44 @@ theorem toSet_inj {p q : Polyhedron 𝔽 n} : p.toSet = q.toSet ↔ p = q := by
   . subst h
     rfl
 
-@[simp] theorem ofDescr_eq_ofDescr {d d'  : LinearSystem 𝔽 n}
+@[simp] theorem ofLinearSystem_eq_ofLinearSystem {d d'  : LinearSystem 𝔽 n}
   : ofLinearSystem d = ofLinearSystem d' ↔ d.toSet = d'.toSet := by
   simp_rw [←toSet_inj, ofLinearSystem, toSet, Quotient.lift_mk]
 
 /-- The set of points of a polyhedron is convex. -/
 theorem toSet_convex : Convex 𝔽 p.toSet :=
   Quot.recOn p
-    (fun P ↦ by
-      intro
-        x x_mem_P
-        y y_mem_P
-        α β α_nonneg β_nonneg αβ_affine
-      show P.mat *ᵥ (α • x + β • y) ≤ P.vec
+    (fun p x x_mem_P y y_mem_P α β α_nonneg β_nonneg αβ_affine ↦ by
       calc
-        P.mat *ᵥ (α • x + β • y) = α • P.mat *ᵥ x + β • P.mat *ᵥ y := by
+        p.mat *ᵥ (α • x + β • y) = α • p.mat *ᵥ x + β • p.mat *ᵥ y := by
           simp_rw [mulVec_add, mulVec_smul]
-        _ ≤ α • P.vec + β • P.vec :=
+        _ ≤ α • p.vec + β • p.vec :=
           add_le_add
             (smul_le_smul_of_nonneg_left x_mem_P α_nonneg)
             (smul_le_smul_of_nonneg_left y_mem_P β_nonneg)
-        _ = P.vec := by rw [←add_smul, αβ_affine, one_smul])
-    (fun _ _ ↦ by simp)
+        _ = p.vec := by rw [←add_smul, αβ_affine, one_smul])
+    (fun _ _ _ ↦ rfl)
 
-section toSet_ofConstraints
-open LinearConstraint
-
--- FIXME: there must be a better way?
-private lemma prod_eq (p : α × β) : p.1 = a ∧ p.2 = b ↔ p = (a, b) := by
-  obtain ⟨fst, snd⟩ := p
-  simp_all only [Prod.mk.injEq]
-
-private lemma le_lemma
-  {constraints : List (LinearConstraint 𝔽 n)} {y : Fin n → 𝔽} {b : 𝔽}
-  : ⟨y, Comparator.le, b⟩ ∈ constraints →
-    ∃ i, (LinearSystem.ofConstraints constraints).mat i = y ∧ (LinearSystem.ofConstraints constraints).vec i = b := by
-  let rows := constraints.bind toExtendedRows
-  intro h
-  show ∃ i : Fin rows.length, rows[i].1 = y ∧ rows[i].2 = b
-  simp_rw [prod_eq]
-  apply List.mem_iff_get.mp
-  rw [List.mem_bind]
-  exact ⟨_, h, by simp [toExtendedRows]⟩
-
-private lemma ge_lemma
-  {constraints : List (LinearConstraint 𝔽 n)} {y : Fin n → 𝔽} {b : 𝔽}
-  : ⟨y, Comparator.ge, b⟩ ∈ constraints →
-    ∃ i, (LinearSystem.ofConstraints constraints).mat i = -y ∧ (LinearSystem.ofConstraints constraints).vec i = -b := by
-  let rows := constraints.bind toExtendedRows
-  intro h
-  show ∃ i : Fin rows.length, rows[i].1 = -y ∧ rows[i].2 = -b
-  simp_rw [prod_eq]
-  apply List.mem_iff_get.mp
-  rw [List.mem_bind]
-  exact ⟨_, h, by simp [toExtendedRows]⟩
-
-private lemma eq_lemma
-  {constraints : List (LinearConstraint 𝔽 n)} {y : Fin n → 𝔽} {b : 𝔽}
-  : ⟨y, Comparator.eq, b⟩ ∈ constraints →
-      (∃ i, (LinearSystem.ofConstraints constraints).mat i = y ∧ (LinearSystem.ofConstraints constraints).vec i = b)
-    ∧ (∃ i, (LinearSystem.ofConstraints constraints).mat i = -y ∧ (LinearSystem.ofConstraints constraints).vec i = -b) := by
-  let rows := constraints.bind toExtendedRows
-  intro h
-  show  (∃ i : Fin rows.length, rows[i].1 = y ∧ rows[i].2 = b)
-      ∧ (∃ i : Fin rows.length, rows[i].1 = -y ∧ rows[i].2 = -b)
-  simp_rw [prod_eq]
-  constructor <;> (
-    apply List.mem_iff_get.mp
-    rw [List.mem_bind]
-    exact ⟨_, h, by simp [toExtendedRows]⟩
-  )
-
-@[simp] theorem mem_ofConstraints (constraints : List (LinearConstraint 𝔽 n))
-  : ∀ x, x ∈ ofLinearSystem (ofConstraints constraints) ↔ ∀ c ∈ constraints, c.valid x := by
-  intro x
-  let rows := constraints.bind toExtendedRows
-  constructor <;> intro h
-  . show ∀ constr ∈ constraints, constr.valid _
-    intro ⟨y, cmp, b⟩ mem_constraints
-    cases cmp <;> simp only [valid]
-    case le =>
-      have ⟨i, hy, hb⟩ := le_lemma mem_constraints
-      subst hy hb
-      apply h
-    case ge =>
-      have ⟨i, hy, hb⟩ := ge_lemma mem_constraints
-      rw [←neg_eq_iff_eq_neg] at hy hb
-      subst hy hb
-      rw [neg_dotProduct, ge_iff_le, neg_le_neg_iff]
-      apply h
-    case eq =>
-      have ⟨⟨i₁, hy₁, hb₁⟩, ⟨i₂, hy₂, hb₂⟩⟩ := eq_lemma mem_constraints
-      apply le_antisymm
-      . subst hy₁ hb₁
-        apply h
-      . rw [←neg_eq_iff_eq_neg] at hy₂ hb₂
-        subst hy₂ hb₂
-        rw [neg_dotProduct, neg_le_neg_iff]
-        apply h
-  . show ∀ (i : Fin rows.length), rows[i].1 ⬝ᵥ _ ≤ rows[i].2
-    intro i
-    show rows[i].1 ⬝ᵥ _ ≤ rows[i].2
-    have : rows[i] ∈ rows := by apply List.get_mem
-    have ⟨⟨y, cmp, b⟩, mem_constraints, h'⟩ := List.mem_bind.mp this
-    have := h _ mem_constraints
-    cases cmp <;> (
-      simp_all only [toExtendedRows, valid, List.mem_singleton, List.mem_pair]
-      try cases h'
-      all_goals simp_all only [neg_dotProduct, neg_le_neg_iff, le_refl]
-    )
+@[simp] theorem mem_ofConstraints {constraints : List (LinearConstraint 𝔽 n)}
+  : ∀ x, x ∈ ofLinearSystem (ofConstraints constraints) ↔ ∀ c ∈ constraints, c.valid x :=
+  LinearSystem.mem_toSet_ofConstraints
 
 /-- The set of points of a polyhedron defined by a given list of `constraints` is the set of
   points that satisfy those constraints. -/
-@[simp] theorem toSet_ofConstraints (constraints : List (LinearConstraint 𝔽 n))
+@[simp] theorem toSet_ofConstraints {constraints : List (LinearConstraint 𝔽 n)}
   : (ofConstraints constraints).toSet = { x | ∀ constr ∈ constraints, constr.valid x } :=
-  Set.ext_iff.mpr (mem_ofConstraints _)
+  LinearSystem.toSet_ofConstraints
 
-end toSet_ofConstraints
-
-instance : Inter (Polyhedron 𝔽 n) where
-  inter := Quotient.lift₂ (ofLinearSystem $ concat · ·) $ by
+/-- Intersection of polyhedra. -/
+def inter : Polyhedron 𝔽 n → Polyhedron 𝔽 n → Polyhedron 𝔽 n :=
+  Quotient.lift₂ (ofLinearSystem $ concat · ·) $ by
     intro a b a' b' ha hb
-    simp_rw [ofDescr_eq_ofDescr, toSet_concat]
+    simp_rw [ofLinearSystem_eq_ofLinearSystem, toSet_concat]
     change a.toSet = a'.toSet at ha
     change b.toSet = b'.toSet at hb
     simp_all only
+
+instance : Inter (Polyhedron 𝔽 n) := ⟨inter⟩
 
 @[simp] theorem toSet_inter (p q : Polyhedron 𝔽 n) : (p ∩ q).toSet = p.toSet ∩ q.toSet :=
   Quotient.inductionOn₂ p q LinearSystem.toSet_concat
