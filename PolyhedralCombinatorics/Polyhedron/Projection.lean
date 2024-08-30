@@ -1,4 +1,5 @@
 import PolyhedralCombinatorics.Polyhedron.Basic
+import PolyhedralCombinatorics.Polyhedron.Notation
 
 import Mathlib.Data.Finset.Sort
 import Mathlib.Data.Sum.Order
@@ -14,7 +15,7 @@ private lemma Finset.mem_filter_univ {α} [Fintype α] {x : α} {p : α → Prop
 namespace LinearSystem
 open Matrix Finset
 
-def openProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) : LinearSystem 𝔽 n :=
+def directionalProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) : LinearSystem 𝔽 n :=
   let N : Finset (Fin S.m) := { i | S.mat i ⬝ᵥ c < 0 }
   let Z : Finset (Fin S.m) := { i | S.mat i ⬝ᵥ c = 0 }
   let P : Finset (Fin S.m) := { i | S.mat i ⬝ᵥ c > 0 }
@@ -30,9 +31,9 @@ def openProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) : LinearSystem
     | .inr (s, t) => (S.mat t ⬝ᵥ c) • S.vec s - (S.mat s ⬝ᵥ c) • S.vec t
   of D d
 
-lemma solutions_openProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽)
-  : (openProjection S c).solutions = { x | ∃ α : 𝔽, x + α • c ∈ S.solutions } := by
-  unfold openProjection
+lemma solutions_directionalProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽)
+  : (directionalProjection S c).solutions = { x | ∃ α : 𝔽, x + α • c ∈ S.solutions } := by
+  unfold directionalProjection
   lift_lets
   extract_lets N Z P R p D d
   ext x
@@ -85,7 +86,7 @@ lemma solutions_openProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽)
         simp only [gt_iff_lt, mem_filter, mem_univ, true_and] at hu
         simp_rw [mulVec_add, mulVec_smul, Pi.add_apply, Pi.smul_apply, smul_eq_mul]
         have := hu i pos
-        rw [le_div_iff pos, le_sub_iff_add_le, add_comm] at this
+        rw [le_div_iff₀ pos, le_sub_iff_add_le, add_comm] at this
         assumption
       . have : i ∈ N := mem_filter.mpr ⟨mem_univ _, neg⟩
         have : N.Nonempty := ⟨_, this⟩
@@ -155,42 +156,150 @@ end LinearSystem
 namespace Polyhedron
 open Matrix LinearSystem
 
-def openProjection (P : Polyhedron 𝔽 n) (c : Fin n → 𝔽) : Polyhedron 𝔽 n :=
-  Quotient.liftOn P
-    (fun S ↦ LinearSystem.openProjection S c)
+def directionalProjection (p : Polyhedron 𝔽 n) (c : Fin n → 𝔽) : Polyhedron 𝔽 n :=
+  Quotient.liftOn p
+    (fun S ↦ LinearSystem.directionalProjection S c)
     (fun a b h ↦ toSet_inj.mp $
-      (solutions_openProjection a _).trans (h ▸ solutions_openProjection b _).symm)
+      (solutions_directionalProjection a _).trans (h ▸ solutions_directionalProjection b _).symm)
 
-theorem mem_openProjection {P : Polyhedron 𝔽 n} {c : Fin n → 𝔽}
-  : x ∈ P.openProjection c ↔ ∃ α : 𝔽, x + α • c ∈ P := by
-  induction P using Quotient.ind
-  unfold openProjection
-  simp_rw [Quotient.lift_mk, mem_ofLinearSystem, solutions_openProjection, Set.mem_setOf]
+@[simp]
+theorem mem_directionalProjection {p : Polyhedron 𝔽 n} {c : Fin n → 𝔽}
+  : x ∈ p.directionalProjection c ↔ ∃ α : 𝔽, x + α • c ∈ p := by
+  induction p using Quotient.ind
+  unfold directionalProjection
+  simp_rw [Quotient.lift_mk, mem_ofLinearSystem, solutions_directionalProjection, Set.mem_setOf]
   rfl
 
-/-- A projection of `S` over `H` in the direction of `c` is a polyhedron such
-  that every point in `P` is in `R` and `x + α c ∈ Q`, for some `α`. -/
-def Projection (S H : Polyhedron 𝔽 n) (c : Fin n → 𝔽) :=
-  { P : Polyhedron 𝔽 n // ∀ x, x ∈ P ↔ x ∈ H ∧ ∃ α : 𝔽, x + α • c ∈ S }
+def projection (S H : Polyhedron 𝔽 n) (c : Fin n → 𝔽) : Polyhedron 𝔽 n :=
+  H ∩ S.directionalProjection c
 
-namespace Projection
+@[simp] theorem mem_projection {S H : Polyhedron 𝔽 n} {c : Fin n → 𝔽}
+  : x ∈ S.projection H c ↔ x ∈ H ∧ ∃ α : 𝔽, x + α • c ∈ S := by simp [projection]
 
-def of (S H : Polyhedron 𝔽 n) (c : Fin n → 𝔽) : Projection S H c :=
-  ⟨H ∩ S.openProjection c, by
-    simp_rw [mem_inter, and_congr_right_iff]
-    intros
-    exact mem_openProjection⟩
+@[simp] theorem subset_directionalProjection {S : Polyhedron 𝔽 n} {c : Fin n → 𝔽}
+  : S ⊆ S.directionalProjection c := by
+  intro x
+  rw [mem_directionalProjection]
+  intro x_mem_S
+  exists 0
+  rw [zero_smul, add_zero]
+  assumption
 
-variable {S H : Polyhedron 𝔽 n} {c : Fin n → 𝔽}
+theorem projection_self (p : Polyhedron 𝔽 n) (c) : p.projection p c = p := by
+  apply subset_antisymm
+  . apply inter_subset_left
+  . apply subset_inter
+    . apply subset_refl
+    . apply subset_directionalProjection
 
-instance : CoeOut (Projection S H c) (Polyhedron 𝔽 n) := ⟨Subtype.val⟩
+def fourierMotzkin (p : Polyhedron 𝔽 n) (j : Fin n) := p.projection !P{x_[j] = 0} x_[j]
 
-theorem unique : ∀ p : Projection S H c, p = Projection.of S H c := fun p ↦
-  Subtype.val_inj.mp $ ext_iff.mpr fun x ↦ (p.2 x).trans ((Projection.of ..).2 x).symm
+theorem mem_fourierMotzkin (p : Polyhedron 𝔽 n) (j : Fin n) :
+  x ∈ p.fourierMotzkin j ↔ x j = 0 ∧ ∃ (α : 𝔽), x + Pi.single j α ∈ p := by
+  simp_rw [
+    fourierMotzkin, mem_projection, mem_ofConstraints,
+    List.mem_singleton, forall_eq, LinearConstraint.eq_valid,
+    single_dotProduct, one_mul, and_congr_right_iff,
+    ←Pi.single_smul, smul_eq_mul, mul_one, implies_true
+  ]
 
-instance {S H : Polyhedron 𝔽 n} : Unique (Projection S H c) where
-  default := Projection.of S H c
-  uniq := unique
+theorem coord_zero_of_mem_fourierMotzkin {p : Polyhedron 𝔽 n} {j : Fin n} {x : Fin n → 𝔽}
+  (h : x ∈ p.fourierMotzkin j) : x j = 0 := by
+  rw [mem_fourierMotzkin] at h
+  exact h.1
 
-theorem mem_projection {S H : Polyhedron 𝔽 n} {c : Fin n → 𝔽}
-  : x ∈ (of S H c : Polyhedron 𝔽 n) ↔ x ∈ H ∧ ∃ α : 𝔽, x + α • c ∈ S := (of S H c).2 x
+theorem directionalProjection_eq_empty_iff (p : Polyhedron 𝔽 n) (c)
+  : p.directionalProjection c = ∅ ↔ p = ∅ := by
+  constructor <;> intro h
+  . have := projection_self p c
+    simp_rw [Polyhedron.ext_iff, mem_projection] at this
+    simp_rw [eq_empty_iff, mem_directionalProjection] at h ⊢
+    simp_all
+  . simp_rw [eq_empty_iff, mem_directionalProjection]
+    simp_all [not_mem_empty]
+
+def recElimDimensions (p : Polyhedron 𝔽 n) {k : ℕ} (h : k ≤ n) :=
+  match k with
+  | 0 => p
+  | k + 1 => (p.recElimDimensions $ le_of_add_le_left h).fourierMotzkin ⟨k, h⟩
+
+lemma recElimDimensions_lemma {p : Polyhedron 𝔽 n} {k : ℕ} (h : k ≤ n) :
+  ∀ ⦃x⦄, x ∈ p.recElimDimensions h → ∀ ⦃j : Fin n⦄, j < k → x j = 0 := by
+  unfold recElimDimensions
+  split
+  . simp
+  next k h' =>
+    simp only [mem_fourierMotzkin]
+    intro x ⟨h₁, h₂⟩
+    obtain ⟨α, h₃⟩ := h₂
+    intro j hj
+    rcases eq_or_lt_of_le hj with eq | lt
+    . simp only [Nat.succ_eq_add_one, add_left_inj] at eq
+      simp_rw [←eq] at h₁
+      exact h₁
+    . simp only [Nat.succ_eq_add_one, add_lt_add_iff_right] at lt
+      have := recElimDimensions_lemma _ h₃ lt
+      rw [Pi.add_apply, Pi.single_apply] at this
+      have : j ≠ ⟨k, h'⟩ := by
+        rw [ne_eq, Fin.eq_mk_iff_val_eq]
+        exact lt.ne
+      simp_all only [Nat.succ_eq_add_one, ite_false, add_zero, ne_eq]
+
+-- theorem recElimDimensions_eq_empty_iff (p : Polyhedron 𝔽 n) {k : ℕ} (hk : k ≤ n)
+--   : p.recElimDimensions h = ∅ ↔ p = ∅ := by
+--   constructor <;> intro h
+--   . unfold recElimDimensions at h
+--     split at h
+--     . assumption
+--     . sorry
+--       -- simp_rw [eq_empty_iff, mem_fourierMotzkin, not_and, not_exists] at h ⊢
+--       -- intro x
+--       -- replace h := h (Function.update x _ 0) (Function.update_same ..) 0
+--       -- rw [Pi.single_zero, add_zero] at h
+--       -- sorry
+--   . unfold recElimDimensions
+--     split
+--     . assumption
+--     . ext
+--       simp_rw [mem_fourierMotzkin, not_mem_empty, iff_false, not_and, not_exists]
+--       intro h x
+--       suffices p.recElimDimensions _ = ∅ by
+--         rw [this]
+--         apply not_mem_empty
+--       apply (p.recElimDimensions_eq_empty_iff hk).mpr
+--       assumption
+
+-- lemma mem_recElimDimensions_lemma2 {p : Polyhedron 𝔽 n} {k : ℕ} (h : k ≤ n) :
+--   x ∈ p.recElimDimensions h ↔
+--   (∀ ⦃j : Fin n⦄, j < k → x j = 0) ∧ ∃ x', (∀ ⦃i : Fin n⦄, i ≥ k → x' i = 0) ∧ x + x' ∈ p := by
+--   unfold recElimDimensions
+--   split
+--   . simp only [not_lt_zero', false_implies, implies_true, ge_iff_le, zero_le, true_implies,
+--     true_and]
+--     constructor <;> intro h
+--     . exists 0
+--       simp_all
+--     . obtain ⟨x', h₁, h₂⟩ := h
+--       have : x' = 0 := funext h₁
+--       subst this
+--       simp_all
+--   next k h' =>
+--     simp only [mem_fourierMotzkin]
+--     constructor <;> intro ⟨h₁, h₂⟩
+--     . constructor
+--       . intro j hj
+--         rcases eq_or_lt_of_le hj with eq | lt
+--         . simp only [Nat.succ_eq_add_one, add_left_inj] at eq
+--           simp_rw [←eq] at h₁
+--           exact h₁
+--         . obtain ⟨α, h₃⟩ := h₂
+--           simp_rw [mem_recElimDimensions_lemma2] at h₃
+--           obtain ⟨h₄, h₅⟩ := h₃
+
+--           sorry
+--       . sorry
+--     . constructor
+--       . sorry
+--       . sorry
+
+end Polyhedron
