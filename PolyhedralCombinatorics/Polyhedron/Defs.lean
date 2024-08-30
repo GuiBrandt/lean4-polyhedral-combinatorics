@@ -1,7 +1,6 @@
 import PolyhedralCombinatorics.LinearSystem.LinearConstraints
 
 import Mathlib.Data.Matrix.Notation
-import Mathlib.Analysis.Convex.Basic
 import Mathlib.Analysis.Normed.Group.Constructions -- Vector (Pi type) norm
 
 variable (𝔽 : Type u₁) [LinearOrderedField 𝔽] (n : ℕ)
@@ -20,7 +19,7 @@ variable {𝔽 n} [LinearOrderedField 𝔽] (p : Polyhedron 𝔽 n)
 instance : Coe (LinearSystem 𝔽 n) (Polyhedron 𝔽 n) := ⟨ofLinearSystem⟩
 
 /-- The set of points in `p`. -/
-@[coe] def toSet : Set (Fin n → 𝔽) := Quotient.lift LinearSystem.toSet (fun _ _ ↦ id) p
+@[coe] def toSet : Set (Fin n → 𝔽) := Quotient.lift solutions (fun _ _ ↦ id) p
 
 instance instCoeSet : Coe (Polyhedron 𝔽 n) (Set (Fin n → 𝔽)) := ⟨toSet⟩
 
@@ -43,12 +42,7 @@ example : Polyhedron 𝔽 2 :=
   of A b
 
 /-- The empty polyhedron (`∅`). -/
-def empty : Polyhedron 𝔽 n :=
-  let A : Matrix (Fin 2) (Fin n) 𝔽 := Matrix.of $ fun
-    | 0, _ => 1
-    | 1, _ => -1
-  let b : Fin 2 → 𝔽 := ![-1, 0]
-  of A b
+def empty : Polyhedron 𝔽 n := of (0 : Matrix (Fin 1) (Fin n) 𝔽) ![-1]
 
 instance : EmptyCollection (Polyhedron 𝔽 n) := ⟨empty⟩
 

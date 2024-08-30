@@ -18,8 +18,10 @@ notation "x_[" n "]" => Pi.single n 1
 /-- Syntax category for linear constraints used to define polyhedra. -/
 declare_syntax_cat linConstraint
 syntax:60 term:61 " ≤ " term : linConstraint
+syntax:60 term:61 " <= " term : linConstraint
 syntax:60 term:61 " = " term : linConstraint
 syntax:60 term:61 " ≥ " term : linConstraint
+syntax:60 term:61 " >= " term : linConstraint
 
 /-- Syntax for declaring polyhedra as systems of linear constraints. -/
 syntax:max (name := systemPolyhedron)
@@ -30,8 +32,10 @@ macro_rules
   | `(P{$[$constraints],*}) => do
     let constraints ← constraints.mapM (fun
       | `(linConstraint| $x:term ≤ $y:term) => `(⟨$x, le, $y⟩)
+      | `(linConstraint| $x:term <= $y:term) => `(⟨$x, le, $y⟩)
       | `(linConstraint| $x:term = $y:term) => `(⟨$x, eq, $y⟩)
       | `(linConstraint| $x:term ≥ $y:term) => `(⟨$x, ge, $y⟩)
+      | `(linConstraint| $x:term >= $y:term) => `(⟨$x, ge, $y⟩)
       | _ => Lean.Macro.throwUnsupported)
     `(ofLinearSystem $ ofConstraints [$constraints,*])
 
