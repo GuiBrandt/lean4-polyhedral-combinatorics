@@ -16,5 +16,5 @@ theorem farkas_lemma {A : Matrix (Fin m) (Fin n) 𝔽} {b : Fin m → 𝔽}
     rw [dotProduct_mulVec, hy, zero_dotProduct] at this
     assumption
   . by_contra hc
-    simp_rw [not_exists, mem_ofLinearSystem_of] at hc
+    simp_rw [not_exists, ←eq_empty_iff, ←recElimDimensions_eq_empty_iff P(A, b) (le_refl n)] at hc
     sorry

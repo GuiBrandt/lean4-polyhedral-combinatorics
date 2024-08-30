@@ -208,7 +208,7 @@ theorem coord_zero_of_mem_fourierMotzkin {p : Polyhedron 𝔽 n} {j : Fin n} {x 
   rw [mem_fourierMotzkin] at h
   exact h.1
 
-theorem directionalProjection_eq_empty_iff (p : Polyhedron 𝔽 n) (c)
+@[simp] theorem directionalProjection_eq_empty_iff (p : Polyhedron 𝔽 n) (c)
   : p.directionalProjection c = ∅ ↔ p = ∅ := by
   constructor <;> intro h
   . have := projection_self p c
@@ -221,85 +221,27 @@ theorem directionalProjection_eq_empty_iff (p : Polyhedron 𝔽 n) (c)
 def recElimDimensions (p : Polyhedron 𝔽 n) {k : ℕ} (h : k ≤ n) :=
   match k with
   | 0 => p
-  | k + 1 => (p.recElimDimensions $ le_of_add_le_left h).fourierMotzkin ⟨k, h⟩
+  | k + 1 => (p.recElimDimensions $ le_of_add_le_left h).directionalProjection x_[⟨k, h⟩]
 
-lemma recElimDimensions_lemma {p : Polyhedron 𝔽 n} {k : ℕ} (h : k ≤ n) :
-  ∀ ⦃x⦄, x ∈ p.recElimDimensions h → ∀ ⦃j : Fin n⦄, j < k → x j = 0 := by
+@[simp] theorem recElimDimensions_eq_empty_iff (p : Polyhedron 𝔽 n) {k : ℕ} (hk : k ≤ n)
+  : p.recElimDimensions hk = ∅ ↔ p = ∅ := by
   unfold recElimDimensions
   split
-  . simp
-  next k h' =>
-    simp only [mem_fourierMotzkin]
-    intro x ⟨h₁, h₂⟩
-    obtain ⟨α, h₃⟩ := h₂
-    intro j hj
-    rcases eq_or_lt_of_le hj with eq | lt
-    . simp only [Nat.succ_eq_add_one, add_left_inj] at eq
-      simp_rw [←eq] at h₁
-      exact h₁
-    . simp only [Nat.succ_eq_add_one, add_lt_add_iff_right] at lt
-      have := recElimDimensions_lemma _ h₃ lt
-      rw [Pi.add_apply, Pi.single_apply] at this
-      have : j ≠ ⟨k, h'⟩ := by
-        rw [ne_eq, Fin.eq_mk_iff_val_eq]
-        exact lt.ne
-      simp_all only [Nat.succ_eq_add_one, ite_false, add_zero, ne_eq]
+  . rfl
+  . rw [directionalProjection_eq_empty_iff]
+    apply p.recElimDimensions_eq_empty_iff
 
--- theorem recElimDimensions_eq_empty_iff (p : Polyhedron 𝔽 n) {k : ℕ} (hk : k ≤ n)
---   : p.recElimDimensions h = ∅ ↔ p = ∅ := by
---   constructor <;> intro h
---   . unfold recElimDimensions at h
---     split at h
---     . assumption
---     . sorry
---       -- simp_rw [eq_empty_iff, mem_fourierMotzkin, not_and, not_exists] at h ⊢
---       -- intro x
---       -- replace h := h (Function.update x _ 0) (Function.update_same ..) 0
---       -- rw [Pi.single_zero, add_zero] at h
---       -- sorry
---   . unfold recElimDimensions
---     split
---     . assumption
---     . ext
---       simp_rw [mem_fourierMotzkin, not_mem_empty, iff_false, not_and, not_exists]
---       intro h x
---       suffices p.recElimDimensions _ = ∅ by
---         rw [this]
---         apply not_mem_empty
---       apply (p.recElimDimensions_eq_empty_iff hk).mpr
---       assumption
-
--- lemma mem_recElimDimensions_lemma2 {p : Polyhedron 𝔽 n} {k : ℕ} (h : k ≤ n) :
---   x ∈ p.recElimDimensions h ↔
---   (∀ ⦃j : Fin n⦄, j < k → x j = 0) ∧ ∃ x', (∀ ⦃i : Fin n⦄, i ≥ k → x' i = 0) ∧ x + x' ∈ p := by
---   unfold recElimDimensions
---   split
---   . simp only [not_lt_zero', false_implies, implies_true, ge_iff_le, zero_le, true_implies,
---     true_and]
---     constructor <;> intro h
---     . exists 0
---       simp_all
---     . obtain ⟨x', h₁, h₂⟩ := h
---       have : x' = 0 := funext h₁
---       subst this
---       simp_all
---   next k h' =>
---     simp only [mem_fourierMotzkin]
---     constructor <;> intro ⟨h₁, h₂⟩
---     . constructor
---       . intro j hj
---         rcases eq_or_lt_of_le hj with eq | lt
---         . simp only [Nat.succ_eq_add_one, add_left_inj] at eq
---           simp_rw [←eq] at h₁
---           exact h₁
---         . obtain ⟨α, h₃⟩ := h₂
---           simp_rw [mem_recElimDimensions_lemma2] at h₃
---           obtain ⟨h₄, h₅⟩ := h₃
-
---           sorry
---       . sorry
---     . constructor
---       . sorry
---       . sorry
+theorem recElimDimensions_all_empty_or_univ (p : Polyhedron 𝔽 n) {k : ℕ}
+  : let p' := p.recElimDimensions (le_refl _); p' = ∅ ∨ p' = ⊤ := by
+  unfold recElimDimensions
+  split
+  . by_cases finZeroElim ∈ p <;> simp_all [Polyhedron.ext_iff, not_mem_empty, mem_univ]
+  . simp only [Nat.succ_eq_add_one, directionalProjection_eq_empty_iff, recElimDimensions_eq_empty_iff]
+    by_cases p = ∅
+    . left; assumption
+    . right
+      simp_rw [Polyhedron.ext_iff, mem_directionalProjection, mem_univ, iff_true]
+      intro x
+      sorry
 
 end Polyhedron
