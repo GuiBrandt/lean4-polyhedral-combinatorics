@@ -25,7 +25,7 @@ with `LinearSystem 𝔽 n`.
 -/
 
 variable
-  (𝔽 : Type*) [LinearOrderedField 𝔽] -- Field type
+  (𝔽 : Type*) -- Field type
   (n : ℕ) -- Dimension of the space
 
 /-- `LinearSystem 𝔽 n` is the type of linear systems of inequalities in `𝔽^n`, where `𝔽` is a
@@ -41,14 +41,51 @@ structure LinearSystem where
 namespace LinearSystem
 open Matrix
 
-variable {𝔽 m n} (p q : LinearSystem 𝔽 n)
+variable {𝔽 m n}
 
 /-- Constructs a linear system defined by a `m × n` coefficient matrix `A` and an `m × 1` column
   vector `b`. -/
-abbrev of (A : Matrix (Fin m) (Fin n) 𝔽) (b : Fin m → 𝔽) : LinearSystem 𝔽 n := ⟨m, A, b⟩
+@[match_pattern] abbrev of (A : Matrix (Fin m) (Fin n) 𝔽) (b : Fin m → 𝔽) : LinearSystem 𝔽 n :=
+  ⟨m, A, b⟩
+
+def empty : LinearSystem 𝔽 n := of vecEmpty vecEmpty
+
+/-- Prepends a linear inequality `yᵀ x ≤ b` to a linear system `p`. -/
+def cons (y : Fin n → 𝔽) (b : 𝔽) (p : LinearSystem 𝔽 n) : LinearSystem 𝔽 n :=
+  of (vecCons y p.mat) (vecCons b p.vec)
+
+@[simp] lemma cons_m : (cons y b p : LinearSystem 𝔽 n).m = p.m + 1 := rfl
+
+@[simp] lemma cons_mat : (cons y b p : LinearSystem 𝔽 n).mat = vecCons y p.mat := rfl
+
+@[simp] lemma cons_vec : (cons y b p : LinearSystem 𝔽 n).vec = vecCons b p.vec := rfl
+
+@[elab_as_elim] def induction {motive : LinearSystem 𝔽 n → Sort _}
+  (empty : motive empty) (cons : ∀ y b p, motive p → motive (cons y b p)) : ∀ p, motive p
+  | ⟨m, A, b⟩ => by
+    induction m
+    case zero =>
+      have : A = vecEmpty := by funext x; exact Fin.elim0 x
+      have : b = vecEmpty := by funext x; exact Fin.elim0 x
+      subst A b
+      exact empty
+    case succ m ih =>
+      have : ⟨_, A, b⟩ = LinearSystem.cons (vecHead A) (vecHead b) (of (vecTail A) (vecTail b)) := by
+        simp only [LinearSystem.cons, Matrix.cons_head_tail]
+      simp_rw [this]
+      apply cons
+      apply ih
+
+@[elab_as_elim] def inductionOn {motive : LinearSystem 𝔽 n → Sort _}
+  (p : LinearSystem 𝔽 n) (empty : motive empty) (cons : ∀ y b p, motive p → motive (cons y b p))
+  : motive p := induction empty cons p
+
+@[elab_as_elim] def cases {motive : LinearSystem 𝔽 n → Sort _}
+  (empty : motive empty) (cons : ∀ y b p, motive (cons y b p))
+  : ∀ p, motive p := induction empty fun y b p _ => cons y b p
 
 /-- The concatenation of two linear systems. -/
-def concat : LinearSystem 𝔽 n :=
+def concat (p q : LinearSystem 𝔽 n) : LinearSystem 𝔽 n :=
   {
     m := p.m + q.m,
     mat := Matrix.of fun i j ↦
@@ -62,6 +99,8 @@ def concat : LinearSystem 𝔽 n :=
       else
         q.vec ⟨i - p.m, Nat.sub_lt_left_of_lt_add (not_lt.mp h) i.prop⟩
   }
+
+variable [LinearOrderedField 𝔽] (p : LinearSystem 𝔽 n)
 
 /-- The set of solutions of the linear system. -/
 @[simp] def solutions : Set (Fin n → 𝔽) := { x | p.mat *ᵥ x ≤ p.vec }

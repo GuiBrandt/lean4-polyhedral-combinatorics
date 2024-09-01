@@ -198,7 +198,7 @@ theorem mem_fourierMotzkin (p : Polyhedron 𝔽 n) (j : Fin n) :
   x ∈ p.fourierMotzkin j ↔ x j = 0 ∧ ∃ (α : 𝔽), x + Pi.single j α ∈ p := by
   simp_rw [
     fourierMotzkin, mem_projection, mem_ofConstraints,
-    List.mem_singleton, forall_eq, LinearConstraint.eq_valid,
+    List.mem_singleton, forall_eq, LinearConstraint.valid,
     single_dotProduct, one_mul, and_congr_right_iff,
     ←Pi.single_smul, smul_eq_mul, mul_one, implies_true
   ]

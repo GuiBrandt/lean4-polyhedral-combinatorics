@@ -5,7 +5,7 @@ open Matrix LinearSystem
 
 variable {𝔽} [LinearOrderedField 𝔽] {n : ℕ}
 
-open Lean.Parser Lean.Elab.Term LinearConstraint.Comparator
+open Lean.Parser Lean.Elab.Term
 
 @[inherit_doc ofLinearSystem]
 scoped notation:max (name := matVecPolyhedron) "P(" A " , " b ")" => ofLinearSystem $ of A b
@@ -31,11 +31,11 @@ macro_rules
   | `(!P[$t^$n]{$[$constraints],*}) => `((!P{$constraints,*} : Polyhedron $t $n))
   | `(!P{$[$constraints],*}) => do
     let constraints ← constraints.mapM (fun
-      | `(linConstraint| $x:term ≤ $y:term) => `(⟨$x, le, $y⟩)
-      | `(linConstraint| $x:term <= $y:term) => `(⟨$x, le, $y⟩)
-      | `(linConstraint| $x:term = $y:term) => `(⟨$x, eq, $y⟩)
-      | `(linConstraint| $x:term ≥ $y:term) => `(⟨$x, ge, $y⟩)
-      | `(linConstraint| $x:term >= $y:term) => `(⟨$x, ge, $y⟩)
+      | `(linConstraint| $x:term ≤ $y:term) => `(LinearConstraint.le $x $y)
+      | `(linConstraint| $x:term <= $y:term) => `(LinearConstraint.le $x $y)
+      | `(linConstraint| $x:term = $y:term) => `(LinearConstraint.eq $x $y)
+      | `(linConstraint| $x:term ≥ $y:term) => `(LinearConstraint.ge $x $y)
+      | `(linConstraint| $x:term >= $y:term) => `(LinearConstraint.ge $x $y)
       | _ => Lean.Macro.throwUnsupported)
     `(ofLinearSystem $ ofConstraints [$constraints,*])
 
