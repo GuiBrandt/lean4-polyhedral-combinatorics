@@ -111,17 +111,15 @@ theorem eq_empty_iff : p = empty ↔ p.m = 0 := by
 def concat (p q : LinearSystem 𝔽 n) : LinearSystem 𝔽 n :=
   {
     m := p.m + q.m,
-    mat := Matrix.of fun i j ↦
-      if h : i < p.m then
-        p.mat ⟨i, h⟩ j
-      else
-        q.mat ⟨i - p.m, Nat.sub_lt_left_of_lt_add (not_lt.mp h) i.prop⟩ j
-    vec := fun i ↦
-      if h : i < p.m then
-        p.vec ⟨i, h⟩
-      else
-        q.vec ⟨i - p.m, Nat.sub_lt_left_of_lt_add (not_lt.mp h) i.prop⟩
+    mat := Fin.append p.mat q.mat
+    vec := Fin.append p.vec q.vec
   }
+
+instance : Append (LinearSystem 𝔽 n) := ⟨concat⟩
+
+theorem concat_m {p q : LinearSystem 𝔽 n} : (p ++ q).m = p.m + q.m := rfl
+theorem concat_mat {p q : LinearSystem 𝔽 n} : (p ++ q).mat = Fin.append p.mat q.mat := rfl
+theorem concat_vec {p q : LinearSystem 𝔽 n} : (p ++ q).vec = Fin.append p.vec q.vec := rfl
 
 variable [LinearOrderedField 𝔽] (p : LinearSystem 𝔽 n)
 
@@ -164,21 +162,25 @@ instance isSetoid (𝔽 n) [LinearOrderedField 𝔽] : Setoid (LinearSystem 𝔽
 
 /-- The set of solutions of the concatenation of two linear systems is the intersection of their
   sets of solutions. -/
-@[simp↓] theorem concat_solutions : (p.concat q).solutions = p.solutions ∩ q.solutions := by
+@[simp low] theorem concat_solutions : (p ++ q).solutions = p.solutions ∩ q.solutions := by
   simp_rw [Set.ext_iff, Set.mem_inter_iff]
   intro x
   constructor <;> intro h
-  . simp_rw [concat, mem_solutions, Pi.le_def] at h
+  . simp_rw [mem_solutions, concat_mat, concat_vec, Pi.le_def] at h
     constructor <;> (rw [mem_solutions, Pi.le_def]; intro i)
-    . have := h (i.castLE $ Nat.le_add_right ..)
+    . have := h (i.castAdd q.m)
       simp_all [mulVec]
-    . have := h ⟨p.m + i, Nat.add_lt_add_left i.prop ..⟩
+    . have := h (i.natAdd p.m)
       simp_all [mulVec]
-  . simp_rw [concat, mem_solutions, Pi.le_def]
+  . simp_rw [mem_solutions, concat_m, concat_mat, concat_vec, Pi.le_def]
     intro i
-    by_cases hi : i < p.m <;> simp only [hi, mulVec, ↓reduceDIte, of_apply]
+    cases i using Fin.addCases
+    <;> simp only [mulVec, Fin.append_left, Fin.append_right]
     . apply h.1
     . apply h.2
+
+@[simp] theorem mem_concat : x ∈ (p ++ q).solutions ↔ x ∈ p.solutions ∧ x ∈ q.solutions := by
+  rw [←Set.mem_inter_iff, concat_solutions]
 
 /-- The set of solutions of a linear system is convex. -/
 theorem solutions_convex : Convex 𝔽 p.solutions := by
@@ -195,8 +197,21 @@ theorem solutions_convex : Convex 𝔽 p.solutions := by
 /-- A system defined by a single equation `aᵀ x ≤ b`. -/
 def semiSpace (a : Fin n → 𝔽) (b : 𝔽) : LinearSystem 𝔽 n := of ![a] ![b]
 
-@[simp↓] theorem semiSpace_solutions : (semiSpace a b).solutions = { x : Fin n → 𝔽 | a ⬝ᵥ x ≤ b } := by
+section
+omit [LinearOrderedField 𝔽]
+
+theorem semiSpace_m {a : Fin n → 𝔽} {b : 𝔽} : (semiSpace a b).m = 1 :=
+  rfl
+theorem semiSpace_mat {a : Fin n → 𝔽} {b : 𝔽} : (semiSpace a b).mat = ![a] := rfl
+theorem semiSpace_vec {a : Fin n → 𝔽} {b : 𝔽} : (semiSpace a b).vec = ![b] := rfl
+
+end
+
+@[simp low] theorem semiSpace_solutions : (semiSpace a b).solutions = { x : Fin n → 𝔽 | a ⬝ᵥ x ≤ b } := by
   simp [semiSpace]
 
 @[simp] theorem mem_semiSpace : ∀ x : Fin n → 𝔽, x ∈ (semiSpace a b).solutions ↔ a ⬝ᵥ x ≤ b := by
   simp [semiSpace]
+
+abbrev ith_semiSpace (S : LinearSystem 𝔽 n) (i : Fin S.m) : LinearSystem 𝔽 n :=
+  semiSpace (S.mat i) (S.vec i)

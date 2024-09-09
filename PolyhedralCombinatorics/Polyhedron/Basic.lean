@@ -141,7 +141,7 @@ theorem toSet_convex : Convex 𝔽 p.toSet := Quotient.recOn p solutions_convex 
 
 /-- Intersection of polyhedra. -/
 def inter : Polyhedron 𝔽 n → Polyhedron 𝔽 n → Polyhedron 𝔽 n :=
-  Quotient.lift₂ (ofLinearSystem $ concat · ·) $ by
+  Quotient.lift₂ (ofLinearSystem $ · ++ ·) $ by
     intro a b a' b' ha hb
     simp_rw [ofLinearSystem_eq_ofLinearSystem, concat_solutions]
     change a.solutions = a'.solutions at ha
