@@ -87,10 +87,6 @@ instance : EmptyCollection (Polyhedron 𝔽 n) := ⟨empty⟩
 
 instance : Bot (Polyhedron 𝔽 n) := ⟨empty⟩
 
-/-- The universe polyhedron (`𝔽^n`). -/
-def univ : Polyhedron 𝔽 n := ofLinearSystem $ of 0 ![]
-instance : Top (Polyhedron 𝔽 n) := ⟨univ⟩
-
 @[simp] theorem empty_toSet : (∅ : Polyhedron 𝔽 n).toSet = ∅ := by
   change empty.toSet = ∅
   simp [empty, Set.eq_empty_iff_forall_not_mem, Pi.le_def]
@@ -105,12 +101,26 @@ theorem eq_empty_iff : p = ∅ ↔ ∀ x, x ∉ p := by
   . ext x
     simp_rw [h, not_mem_empty]
 
+/-- The universe polyhedron (`𝔽^n`). -/
+def univ : Polyhedron 𝔽 n := ofLinearSystem LinearSystem.empty
+
+instance : Top (Polyhedron 𝔽 n) := ⟨univ⟩
+
 @[simp] theorem univ_toSet : (⊤ : Polyhedron 𝔽 n).toSet = Set.univ := by
   show univ.toSet = Set.univ
-  simp [univ]
+  simp [univ, LinearSystem.empty]
 
 /-- The empty polyhedron contains all points. -/
 theorem mem_univ : ∀ x, x ∈ (⊤ : Polyhedron 𝔽 n) := by simp [mem_def]
+
+/-- The semi-space given by the equation `aᵀ x ≤ b`. -/
+def semiSpace (a : Fin n → 𝔽) (b : 𝔽) : Polyhedron 𝔽 n := ofLinearSystem $ of ![a] ![b]
+
+@[simp] theorem mem_semiSpace : ∀ x : Fin n → 𝔽, x ∈ semiSpace a b ↔ a ⬝ᵥ x ≤ b := by
+  simp [semiSpace]
+
+@[simp] theorem semiSpace_toSet : (semiSpace a b).toSet = { x : Fin n → 𝔽 | a ⬝ᵥ x ≤ b } := by
+  simp [semiSpace]
 
 @[simp] theorem ofLinearSystem_eq_ofLinearSystem {d d'  : LinearSystem 𝔽 n}
   : ofLinearSystem d = ofLinearSystem d' ↔ d.solutions = d'.solutions := by
@@ -133,7 +143,7 @@ theorem toSet_convex : Convex 𝔽 p.toSet := Quotient.recOn p solutions_convex 
 def inter : Polyhedron 𝔽 n → Polyhedron 𝔽 n → Polyhedron 𝔽 n :=
   Quotient.lift₂ (ofLinearSystem $ concat · ·) $ by
     intro a b a' b' ha hb
-    simp_rw [ofLinearSystem_eq_ofLinearSystem, solutions_concat]
+    simp_rw [ofLinearSystem_eq_ofLinearSystem, concat_solutions]
     change a.solutions = a'.solutions at ha
     change b.solutions = b'.solutions at hb
     simp_all only
@@ -141,11 +151,22 @@ def inter : Polyhedron 𝔽 n → Polyhedron 𝔽 n → Polyhedron 𝔽 n :=
 instance : Inter (Polyhedron 𝔽 n) := ⟨inter⟩
 
 @[simp] theorem toSet_inter : (p ∩ q).toSet = p.toSet ∩ q.toSet :=
-  Quotient.inductionOn₂ p q solutions_concat
+  Quotient.inductionOn₂ p q concat_solutions
 
 @[simp] theorem mem_inter {p q : Polyhedron 𝔽 n} {x : Fin n → 𝔽} : x ∈ p ∩ q ↔ x ∈ p ∧ x ∈ q := by
   induction p, q using Quotient.ind₂
   simp only [mem_def, toSet_inter, Set.mem_inter_iff]
+
+theorem mem_of_mem_inter_left {p q : Polyhedron 𝔽 n} {x : Fin n → 𝔽} (h : x ∈ p ∩ q) : x ∈ p :=
+  (mem_inter.mp h).1
+
+theorem mem_of_mem_inter_right {p q : Polyhedron 𝔽 n} {x : Fin n → 𝔽} (h : x ∈ p ∩ q) : x ∈ q :=
+  (mem_inter.mp h).2
+
+theorem inter_comm {p q : Polyhedron 𝔽 n} : p ∩ q = q ∩ p := by
+  ext x
+  simp_rw [mem_inter]
+  exact And.comm
 
 abbrev Subset (p q : Polyhedron 𝔽 n) : Prop := ∀ ⦃x⦄, x ∈ p → x ∈ q
 
@@ -188,3 +209,35 @@ instance : SemilatticeInf (Polyhedron 𝔽 n) where
   inf_le_left := inter_subset_left
   inf_le_right := inter_subset_right
   le_inf := subset_inter
+
+instance : OrderTop (Polyhedron 𝔽 n) where
+  le_top := subset_univ
+
+instance : OrderBot (Polyhedron 𝔽 n) where
+  bot_le := empty_subset
+
+theorem ofLinearSystem_cons {p : LinearSystem 𝔽 n}
+  : ofLinearSystem (cons y b p) = semiSpace y b ∩ ofLinearSystem p := by ext; simp
+
+@[elab_as_elim] def induction {motive : Polyhedron 𝔽 n → Prop}
+  (univ : motive univ) (inter_semiSpace : ∀ a b p, motive p → motive (semiSpace a b ∩ p))
+  : ∀ p, motive p := by
+  intro p
+  induction p using Quotient.ind
+  next p =>
+    induction p using LinearSystem.induction with
+    | empty => exact univ
+    | cons a b p ih =>
+      show motive (ofLinearSystem $ cons a b p)
+      rw [ofLinearSystem_cons]
+      apply inter_semiSpace
+      exact ih
+
+@[elab_as_elim] def inductionOn {motive : Polyhedron 𝔽 n → Prop}
+  (p : Polyhedron 𝔽 n)
+  (univ : motive univ) (inter_semiSpace : ∀ a b p, motive p → motive (semiSpace a b ∩ p))
+  : motive p := induction univ inter_semiSpace p
+
+@[elab_as_elim] def cases {motive : Polyhedron 𝔽 n → Prop}
+  (univ : motive univ) (inter_semiSpace : ∀ a b p, motive (semiSpace a b ∩ p))
+  : ∀ p, motive p := induction univ fun a b p _ => inter_semiSpace a b p

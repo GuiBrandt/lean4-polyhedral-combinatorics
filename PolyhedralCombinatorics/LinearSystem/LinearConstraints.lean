@@ -73,25 +73,6 @@ variable {cs : List (LinearConstraint 𝔽 n)} {y : Fin n → 𝔽} {b : 𝔽}
 
 theorem mem_ofConstraints_nil_solutions : x ∈ (@ofConstraints 𝔽 _ n []).solutions := by simp
 
-@[simp] private lemma vecCons_mulVec
-  {m n : ℕ} (y : Fin n → 𝔽) (A : Matrix (Fin m) (Fin n) 𝔽) (x : Fin n → 𝔽)
-  : vecCons y A *ᵥ x = vecCons (y ⬝ᵥ x) (A *ᵥ x) := by
-  funext x
-  cases x using Fin.cases <;> rfl
-
-@[simp] private lemma vecCons_le_vecCons {n : ℕ} (a b : 𝔽) (x y : Fin n → 𝔽)
-  : vecCons a x ≤ vecCons b y ↔ a ≤ b ∧ x ≤ y := by
-  simp_rw [Pi.le_def]
-  constructor <;> intro h
-  . constructor
-    . exact h 0
-    . intro i
-      exact h i.succ
-  . intro i
-    cases i using Fin.cases
-    . simp only [cons_val_zero, h.1]
-    . simp only [cons_val_succ, h.2]
-
 @[simp] lemma mem_ofConstraints_cons_solutions
   : x ∈ (@ofConstraints 𝔽 _ n $ c :: cs).solutions ↔ c.valid x ∧ x ∈ (ofConstraints cs).solutions := by
   simp only [solutions, Set.mem_setOf_eq, valid, ge_iff_le]

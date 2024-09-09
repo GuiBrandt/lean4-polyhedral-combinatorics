@@ -13,3 +13,6 @@ require "leanprover-community" / "mathlib"
 @[default_target]
 lean_lib «PolyhedralCombinatorics» where
   -- add any library configuration options here
+
+lean_lib «Utils» where
+  -- add any library configuration options here

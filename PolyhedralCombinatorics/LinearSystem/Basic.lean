@@ -48,18 +48,31 @@ variable {𝔽 m n}
 @[match_pattern] abbrev of (A : Matrix (Fin m) (Fin n) 𝔽) (b : Fin m → 𝔽) : LinearSystem 𝔽 n :=
   ⟨m, A, b⟩
 
-def empty : LinearSystem 𝔽 n := of vecEmpty vecEmpty
+@[simp] def empty : LinearSystem 𝔽 n := of vecEmpty vecEmpty
+
+theorem eq_empty_iff : p = empty ↔ p.m = 0 := by
+  constructor <;> intro h
+  . rw [h]
+    rfl
+  . obtain ⟨m, A, b⟩ := p
+    simp only at h
+    subst m
+    suffices A = ![] ∧ b = ![] by
+      rw [this.1, this.2]
+      rfl
+    constructor
+    . funext x; apply Fin.elim0 x
+    . funext x; apply Fin.elim0 x
 
 /-- Prepends a linear inequality `yᵀ x ≤ b` to a linear system `p`. -/
-def cons (y : Fin n → 𝔽) (b : 𝔽) (p : LinearSystem 𝔽 n) : LinearSystem 𝔽 n :=
+@[simp] def cons (y : Fin n → 𝔽) (b : 𝔽) (p : LinearSystem 𝔽 n) : LinearSystem 𝔽 n :=
   of (vecCons y p.mat) (vecCons b p.vec)
 
-@[simp] lemma cons_m : (cons y b p : LinearSystem 𝔽 n).m = p.m + 1 := rfl
+/-- Define `motive p` by induction on `LinearSystem 𝔽 n` via induction on the inequalities of the
+  system.
 
-@[simp] lemma cons_mat : (cons y b p : LinearSystem 𝔽 n).mat = vecCons y p.mat := rfl
-
-@[simp] lemma cons_vec : (cons y b p : LinearSystem 𝔽 n).vec = vecCons b p.vec := rfl
-
+  This function has two arguments: `empty` gives the base case on an empty linear system, and
+  `cons` gives the inductive step for a linear system of the form `cons y b p`. -/
 @[elab_as_elim] def induction {motive : LinearSystem 𝔽 n → Sort _}
   (empty : motive empty) (cons : ∀ y b p, motive p → motive (cons y b p)) : ∀ p, motive p
   | ⟨m, A, b⟩ => by
@@ -76,13 +89,23 @@ def cons (y : Fin n → 𝔽) (b : 𝔽) (p : LinearSystem 𝔽 n) : LinearSyste
       apply cons
       apply ih
 
+/-- A version of `LinearSystem.induction` taking `p : LinearSystem 𝔽 n` as the first argument. -/
 @[elab_as_elim] def inductionOn {motive : LinearSystem 𝔽 n → Sort _}
   (p : LinearSystem 𝔽 n) (empty : motive empty) (cons : ∀ y b p, motive p → motive (cons y b p))
   : motive p := induction empty cons p
 
+/-- Define `motive p` by separately handling the cases `p = empty` and `p = cons y b q`. --/
 @[elab_as_elim] def cases {motive : LinearSystem 𝔽 n → Sort _}
   (empty : motive empty) (cons : ∀ y b p, motive (cons y b p))
   : ∀ p, motive p := induction empty fun y b p _ => cons y b p
+
+@[simp] theorem cases_empty {motive : LinearSystem 𝔽 n → Sort _}
+  {empty : motive empty} {cons : ∀ y b p, motive (cons y b p)}
+  : cases empty cons LinearSystem.empty = empty := rfl
+
+@[simp] theorem cases_cons {motive : LinearSystem 𝔽 n → Sort _}
+  {empty : motive empty} {cons : ∀ y b p, motive (cons y b p)}
+  : cases empty cons (LinearSystem.cons y b p) = cons y b p := rfl
 
 /-- The concatenation of two linear systems. -/
 def concat (p q : LinearSystem 𝔽 n) : LinearSystem 𝔽 n :=
@@ -103,7 +126,7 @@ def concat (p q : LinearSystem 𝔽 n) : LinearSystem 𝔽 n :=
 variable [LinearOrderedField 𝔽] (p : LinearSystem 𝔽 n)
 
 /-- The set of solutions of the linear system. -/
-@[simp] def solutions : Set (Fin n → 𝔽) := { x | p.mat *ᵥ x ≤ p.vec }
+@[simp low] def solutions : Set (Fin n → 𝔽) := { x | p.mat *ᵥ x ≤ p.vec }
 
 /-- Two linear systems are said to be equivalent when their sets of solutions are equal. -/
 instance : HasEquiv (LinearSystem 𝔽 n) := ⟨(·.solutions = ·.solutions)⟩
@@ -115,9 +138,33 @@ instance isSetoid (𝔽 n) [LinearOrderedField 𝔽] : Setoid (LinearSystem 𝔽
 
 @[simp] lemma mem_solutions_of {x : Fin n → 𝔽} : x ∈ (of A b).solutions ↔ A *ᵥ x ≤ b := Set.mem_setOf
 
+@[simp] theorem empty_solutions : (empty : LinearSystem 𝔽 n).solutions = Set.univ := by simp
+
+@[simp] lemma vecCons_mulVec
+  {m n : ℕ} (y : Fin n → 𝔽) (A : Matrix (Fin m) (Fin n) 𝔽) (x : Fin n → 𝔽)
+  : vecCons y A *ᵥ x = vecCons (y ⬝ᵥ x) (A *ᵥ x) := by
+  funext x
+  cases x using Fin.cases <;> rfl
+
+@[simp] lemma vecCons_le_vecCons {n : ℕ} (a b : 𝔽) (x y : Fin n → 𝔽)
+  : vecCons a x ≤ vecCons b y ↔ a ≤ b ∧ x ≤ y := by
+  simp_rw [Pi.le_def]
+  constructor <;> intro h
+  . constructor
+    . exact h 0
+    . intro i
+      exact h i.succ
+  . intro i
+    cases i using Fin.cases
+    . simp only [cons_val_zero, h.1]
+    . simp only [cons_val_succ, h.2]
+
+@[simp] theorem cons_solutions
+  : (cons y b p : LinearSystem 𝔽 n).solutions = {x | y ⬝ᵥ x ≤ b ∧ p.mat *ᵥ x ≤ p.vec} := by simp
+
 /-- The set of solutions of the concatenation of two linear systems is the intersection of their
   sets of solutions. -/
-@[simp] theorem solutions_concat : (p.concat q).solutions = p.solutions ∩ q.solutions := by
+@[simp↓] theorem concat_solutions : (p.concat q).solutions = p.solutions ∩ q.solutions := by
   simp_rw [Set.ext_iff, Set.mem_inter_iff]
   intro x
   constructor <;> intro h
@@ -144,3 +191,12 @@ theorem solutions_convex : Convex 𝔽 p.solutions := by
         (smul_le_smul_of_nonneg_left x_mem_p α_nonneg)
         (smul_le_smul_of_nonneg_left y_mem_p β_nonneg)
     _ = p.vec := by rw [←add_smul, αβ_affine, one_smul]
+
+/-- A system defined by a single equation `aᵀ x ≤ b`. -/
+def semiSpace (a : Fin n → 𝔽) (b : 𝔽) : LinearSystem 𝔽 n := of ![a] ![b]
+
+@[simp↓] theorem semiSpace_solutions : (semiSpace a b).solutions = { x : Fin n → 𝔽 | a ⬝ᵥ x ≤ b } := by
+  simp [semiSpace]
+
+@[simp] theorem mem_semiSpace : ∀ x : Fin n → 𝔽, x ∈ (semiSpace a b).solutions ↔ a ⬝ᵥ x ≤ b := by
+  simp [semiSpace]
