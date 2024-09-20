@@ -200,8 +200,52 @@ lemma projection_inter_pairs (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) {x}
     apply (S.mem_solutions_iff_inter_pairs (x + α • c)).mp h
   . intro h
     simp_rw [mem_projection] at h ⊢
-    simp_rw [S.mem_solutions_iff_inter_pairs]
-    sorry
+    let N : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c < 0}
+    let Z : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c = 0}
+    let P : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c > 0}
+    let Λ : Fin S.m → 𝔽 := fun i ↦ (S.vec i - S.mat i ⬝ᵥ x) / (S.mat i ⬝ᵥ c)
+    let L := (N.image Λ).max
+    let U := (P.image Λ).min
+    have ⟨α, hl, hu⟩ : ∃ α : 𝔽, L ≤ α ∧ α ≤ U := by
+      match hL : L, hU : U with
+      | ⊥, ⊤ => exact ⟨0, bot_le, le_top⟩
+      | ⊥, .some u => exact ⟨u, bot_le, le_rfl⟩
+      | .some l, ⊤ => exact ⟨l, le_rfl, le_top⟩
+      | .some l, .some u =>
+        have hN : N.Nonempty := Finset.image_nonempty.mp ⟨l, Finset.mem_of_max hL⟩
+        have hP : P.Nonempty := Finset.image_nonempty.mp ⟨u, Finset.mem_of_min hU⟩
+        unfold_let L U at hL hU
+        let ⟨i, hi⟩ := Finset.max_of_nonempty hN
+        let ⟨j, hj⟩ := Finset.max_of_nonempty hP
+        replace ⟨α, h⟩ := h i j
+        exists α
+        constructor <;> by_contra hc <;> rw [not_le] at hc
+        . sorry
+        . sorry
+    exists α
+    rw [mem_solutions, Pi.le_def, mulVec_add, mulVec_smul]
+    intro i
+    rw [Pi.add_apply, Pi.smul_apply]
+    change S.mat i ⬝ᵥ x + α * S.mat i ⬝ᵥ c ≤ S.vec i
+    rcases lt_trichotomy (S.mat i ⬝ᵥ c) 0 with neg | zero | pos
+    . have mem_N : i ∈ N := mem_filter_univ.mpr neg
+      have : N.Nonempty := ⟨_, mem_N⟩
+      simp only [Finset.max_le_iff, mem_image, WithBot.coe_le_coe, forall_exists_index, and_imp,
+        forall_apply_eq_imp_iff₂, L] at hl
+      rw [add_comm, ←le_sub_iff_add_le, ←div_le_iff_of_neg neg]
+      exact hl _ mem_N
+    . rw [zero, mul_zero, add_zero]
+      have : i ∈ Z := mem_filter_univ.mpr zero
+      have ⟨α', hα'⟩ := h i i
+      rw [mem_concat, and_self, mem_semiSpace, dotProduct_add, dotProduct_smul, zero, smul_zero,
+        add_zero] at hα'
+      assumption
+    . have mem_P : i ∈ P := mem_filter_univ.mpr pos
+      have : P.Nonempty := ⟨_, mem_P⟩
+      simp only [Finset.le_min_iff, mem_image, WithTop.coe_le_coe, forall_exists_index, and_imp,
+        forall_apply_eq_imp_iff₂, U] at hu
+      rw [add_comm, ←le_sub_iff_add_le, ←le_div_iff₀ pos]
+      exact hu _ mem_P
 
 def computeProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) : LinearSystem 𝔽 n :=
   let N : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c < 0}
