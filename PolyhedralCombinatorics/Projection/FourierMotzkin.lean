@@ -18,6 +18,13 @@ theorem mem_elim0_of_vecCons_zero_mem {S : LinearSystem 𝔽 (n + 1)} {x : Fin n
   rw [dotProduct_cons, mul_zero, zero_add] at h
   exact h
 
+theorem mem_elim0 {S : LinearSystem 𝔽 (n + 1)} {x : Fin n → 𝔽}
+  : x ∈ S.elim0.solutions ↔ vecCons 0 x ∈ S.solutions := by
+  simp only [elim0, mem_solutions, Pi.le_def]
+  apply forall_congr'
+  intro i
+  simp_rw [mulVec, Function.comp_apply, dotProduct_cons, mul_zero, zero_add]
+
 end LinearSystem
 
 namespace Polyhedron
@@ -35,39 +42,53 @@ theorem mem_fourierMotzkin (P : Polyhedron 𝔽 n) (j : Fin n) :
     ←Pi.single_smul, smul_eq_mul, mul_one, implies_true
   ]
 
--- def elimSucc (P : Polyhedron 𝔽 (n + 1)) : Polyhedron 𝔽 n :=
---   Quotient.recOn P
---     (fun S ↦ LinearSystem.of (Matrix.of fun i j ↦ S.mat i j.castSucc) S.vec)
---     fun S S' h ↦ by
---       ext x
---       simp only [eq_rec_constant, mem_ofLinearSystem_of]
---       simp_rw [LinearSystem.equiv_def, Set.ext_iff, LinearSystem.mem_solutions] at h
---       replace h := h $ fun i ↦ if h : i.val < n then x (i.castLT h) else 0
---       simp_rw [Pi.le_def, mulVec] at h
---       sorry
+def elim0 (P : Polyhedron 𝔽 (n + 1)) : Polyhedron 𝔽 n :=
+  Quotient.recOn P (Polyhedron.ofLinearSystem ∘ LinearSystem.elim0)
+    fun S S' heq ↦ by
+      ext x
+      simp_rw [LinearSystem.equiv_def, Set.ext_iff] at heq
+      simp only [eq_rec_constant, Function.comp_apply, mem_ofLinearSystem, LinearSystem.mem_elim0]
+      apply heq
 
--- def recElimDimensions (p : Polyhedron 𝔽 n) {k : ℕ} (h : k ≤ n) :=
---   match k with
---   | 0 => p
---   | k + 1 => (p.recElimDimensions $ le_of_add_le_left h).computeProjection x_[⟨k, h⟩]
+theorem mem_elim0 {P : Polyhedron 𝔽 (n + 1)} {x : Fin n → 𝔽}
+  : x ∈ P.elim0 ↔ vecCons 0 x ∈ P :=
+  Quotient.recOn P (fun S ↦ S.mem_elim0) (fun _ _ _ ↦ rfl)
 
--- @[simp] theorem recElimDimensions_eq_empty_iff (p : Polyhedron 𝔽 n) {k : ℕ} (hk : k ≤ n)
---   : p.recElimDimensions hk = ∅ ↔ p = ∅ := by
---   unfold recElimDimensions
---   split
---   . rfl
---   . rw [computeProjection_eq_empty_iff]
---     apply p.recElimDimensions_eq_empty_iff
+def fourierMotzkinElim0 (P : Polyhedron 𝔽 (n + 1)) : Polyhedron 𝔽 n :=
+  (P.fourierMotzkin 0).elim0
 
--- theorem recElimDimensions_all_empty_or_univ (p : Polyhedron 𝔽 n) {k : ℕ}
---   : let p' := p.recElimDimensions (le_refl _); p' = ∅ ∨ p' = ⊤ := by
---   unfold recElimDimensions
---   split
---   . by_cases finZeroElim ∈ p <;> simp_all [Polyhedron.ext_iff, not_mem_empty, mem_univ]
---   . simp only [Nat.succ_eq_add_one, computeProjection_eq_empty_iff, recElimDimensions_eq_empty_iff]
---     by_cases p = ∅
---     . left; assumption
---     . right
---       simp_rw [Polyhedron.ext_iff, mem_computeProjection, mem_univ, iff_true]
---       intro x
---       sorry
+theorem mem_fourierMotzkinElim0 {P : Polyhedron 𝔽 (n + 1)} {x : Fin n → 𝔽}
+  : x ∈ P.fourierMotzkinElim0 ↔ ∃ x₀ : 𝔽, vecCons x₀ x ∈ P := by
+  unfold fourierMotzkinElim0
+  suffices ∀ α, (Pi.single 0 α : Fin (n + 1) → 𝔽) = vecCons α 0 by
+    simp_rw [mem_elim0, mem_fourierMotzkin, cons_val_zero, true_and, cons_add,
+      zero_add, vecHead, Pi.single_eq_same, this, Matrix.tail_cons, add_zero]
+  intro α
+  funext i
+  cases i using Fin.cases
+  . simp only [Pi.single_eq_same, cons_val_zero]
+  . simp_rw [Pi.single_eq_of_ne (f := fun _ ↦ 𝔽) (Fin.succ_ne_zero _) _, cons_val_succ,
+      Pi.zero_apply]
+
+theorem fourierMotzkinElim0_eq_empty_iff {P : Polyhedron 𝔽 (n + 1)}
+  : P.fourierMotzkinElim0 = ∅ ↔ P = ∅ := by
+  simp_rw [eq_empty_iff, mem_fourierMotzkinElim0, not_exists]
+  constructor <;> intro h x
+  . rw [←Matrix.cons_head_tail x]
+    apply h
+  . intros
+    apply h
+
+def fourierMotzkinElimRec {n : ℕ} (P : Polyhedron 𝔽 n) : Polyhedron 𝔽 0 :=
+  match n with
+  | 0 => P
+  | _ + 1 => fourierMotzkinElimRec P.fourierMotzkinElim0
+
+@[simp] theorem recElimDimensions_eq_empty_iff (P : Polyhedron 𝔽 n)
+  : P.fourierMotzkinElimRec = ∅ ↔ P = ∅ := by
+  induction n
+  case zero => rfl
+  case succ n ih =>
+    transitivity
+    . apply ih
+    . exact P.fourierMotzkinElim0_eq_empty_iff
