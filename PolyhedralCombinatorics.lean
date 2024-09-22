@@ -5,12 +5,14 @@ import Utils.Finset
 
 import PolyhedralCombinatorics.LinearSystem.Basic
 import PolyhedralCombinatorics.LinearSystem.LinearConstraints
+import PolyhedralCombinatorics.LinearSystem.Notation
 
 import PolyhedralCombinatorics.Polyhedron.Basic
-import PolyhedralCombinatorics.Polyhedron.Duality
 import PolyhedralCombinatorics.Polyhedron.Notation
 
 import PolyhedralCombinatorics.Projection.Basic
 import PolyhedralCombinatorics.Projection.SemiSpace
 import PolyhedralCombinatorics.Projection.Computable
 import PolyhedralCombinatorics.Projection.FourierMotzkin
+
+import PolyhedralCombinatorics.Duality.Farkas

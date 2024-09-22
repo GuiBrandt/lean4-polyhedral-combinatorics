@@ -131,7 +131,7 @@ theorem toSet_convex : Convex 𝔽 p.toSet := Quotient.recOn p solutions_convex 
 
 @[simp] theorem mem_ofConstraints {constraints : List (LinearConstraint 𝔽 n)}
   : ∀ x, x ∈ ofLinearSystem (ofConstraints constraints) ↔ ∀ c ∈ constraints, c.valid x :=
-  mem_solutions_ofConstraints
+  LinearSystem.mem_ofConstraints
 
 /-- The set of points of a polyhedron defined by a given list of `constraints` is the set of
   points that satisfy those constraints. -/

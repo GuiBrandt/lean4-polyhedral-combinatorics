@@ -92,7 +92,7 @@ theorem mem_ofConstraints_nil_solutions : x ∈ (@ofConstraints 𝔽 _ n []).sol
     cons y b (cons (-y) (-b) $ ofConstraints cs) := by
   rfl
 
-@[simp] theorem mem_solutions_ofConstraints (x : Fin n → 𝔽)
+@[simp] theorem mem_ofConstraints (x : Fin n → 𝔽)
   : x ∈ (ofConstraints cs).solutions ↔ ∀ c ∈ cs, c.valid x := by
   induction cs
   case nil =>
@@ -104,7 +104,7 @@ theorem mem_ofConstraints_nil_solutions : x ∈ (@ofConstraints 𝔽 _ n []).sol
   all constraints. -/
 @[simp] theorem solutions_ofConstraints
   : (ofConstraints cs).solutions = { x : Fin n → 𝔽 | ∀ c ∈ cs, c.valid x } :=
-  Set.ext_iff.mpr mem_solutions_ofConstraints
+  Set.ext_iff.mpr mem_ofConstraints
 
 end toSet_ofConstraints
 

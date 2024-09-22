@@ -1,5 +1,7 @@
 import PolyhedralCombinatorics.Projection.SemiSpace
+import PolyhedralCombinatorics.LinearSystem.Notation
 
+import Mathlib.Data.Matrix.Reflection
 import Mathlib.Data.Finset.Sort
 import Mathlib.Data.Sum.Order
 
@@ -74,6 +76,58 @@ def computeProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) : LinearSys
   : (computeProjection S c).solutions = S.projection c := by
   simp_rw [Set.ext_iff, mem_projection]
   apply mem_computeProjection
+
+theorem computeProjection_mat_ortho {S : LinearSystem 𝔽 n} {c : Fin n → 𝔽}
+  : (computeProjection S c).mat *ᵥ c = 0 := by
+  unfold computeProjection
+  lift_lets
+  extract_lets _ Z _ _ r p D _
+  funext i
+  simp_rw [mulVec, Pi.zero_apply, D, Matrix.of_apply]
+  eta_reduce
+  split
+  . rename_i s _
+    have := mem_filter_univ.mp s.property
+    assumption
+  . simp only [sub_dotProduct, smul_dotProduct, smul_eq_mul]
+    rw [mul_comm, sub_self]
+
+theorem computeProjection_mat_conic {S : LinearSystem 𝔽 n} {c : Fin n → 𝔽}
+  : ∃ U : Matrix _ _ 𝔽,
+    (∀ i, U i ≥ 0)
+    ∧ U * S.mat = (computeProjection S c).mat
+    ∧ U *ᵥ S.vec = (computeProjection S c).vec := by
+  unfold computeProjection
+  lift_lets
+  extract_lets _ _ _ _ r p D d
+  let U : Matrix (Fin r) (Fin S.m) 𝔽 :=
+    Matrix.of fun i ↦
+      match p i with
+      | .inl s => Pi.single s 1
+      | .inr (s, t) => Pi.single ↑s (S.mat t ⬝ᵥ c) - Pi.single ↑t (S.mat s ⬝ᵥ c)
+  exists U
+  constructor
+  . simp_rw [U, Pi.le_def, of_apply, Pi.zero_apply]
+    intro i j
+    rcases p i with s | ⟨s, t⟩ <;> simp only
+    . rw [Pi.single_apply]
+      split <;> simp only [zero_le_one, le_refl]
+    . simp_rw [Pi.sub_apply, Pi.single_apply]
+      have hs := (mem_filter_univ.mp s.prop).le
+      have ht := (mem_filter_univ.mp t.prop).le
+      split <;> split <;> simp_all
+  constructor
+  funext i j
+  simp_rw [mul_apply', U, D, of_apply]
+  rotate_left
+  funext i
+  simp_rw [U, d, mulVec, of_apply]
+  all_goals (
+    rcases p i with s | ⟨s, t⟩ <;> simp only
+    . simp only [single_dotProduct, one_mul]
+    . simp_rw [sub_dotProduct, single_dotProduct]
+      rfl
+  )
 
 end LinearSystem
 
