@@ -48,8 +48,10 @@ variable {𝔽 m n}
 @[match_pattern] abbrev of (A : Matrix (Fin m) (Fin n) 𝔽) (b : Fin m → 𝔽) : LinearSystem 𝔽 n :=
   ⟨m, A, b⟩
 
+/-- The empty linear system. -/
 @[simp] def empty : LinearSystem 𝔽 n := of vecEmpty vecEmpty
 
+/-- A linear system is empty if and only if it has no rows. -/
 theorem eq_empty_iff : p = empty ↔ p.m = 0 := by
   constructor <;> intro h
   . rw [h]
@@ -131,6 +133,8 @@ instance : HasEquiv (LinearSystem 𝔽 n) := ⟨(·.solutions = ·.solutions)⟩
 
 instance isSetoid (𝔽 n) [LinearOrderedField 𝔽] : Setoid (LinearSystem 𝔽 n) :=
   ⟨instHasEquiv.Equiv, fun _ ↦ rfl, Eq.symm, Eq.trans⟩
+
+@[simp] theorem equiv_def : p ≈ q ↔ p.solutions = q.solutions := Iff.rfl
 
 @[simp] lemma mem_solutions : x ∈ p.solutions ↔ p.mat *ᵥ x ≤ p.vec := Set.mem_setOf
 
