@@ -10,10 +10,26 @@ import Mathlib.Tactic.LiftLets
 import Utils.IsEmpty
 import Utils.Finset
 
-variable {𝔽} [lof : LinearOrderedField 𝔽] {n : ℕ}
+variable {𝔽} [LinearOrderedField 𝔽] {n : ℕ}
 
 namespace LinearSystem
 open Matrix Finset
+
+def projectionMatrix (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) :=
+  let N : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c < 0}
+  let Z : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c = 0}
+  let P : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c > 0}
+  let R := Z ⊕ₗ (N ×ₗ P)
+  let r := Fintype.card R
+  let p : Fin r ≃o R := Fintype.orderIsoFinOfCardEq R rfl
+  let U : Matrix (Fin _) (Fin S.m) 𝔽 := Matrix.of fun i ↦
+      match p i with
+      | .inl s => Pi.single ↑s 1
+      | .inr (s, t) => Pi.single ↑s (S.mat t ⬝ᵥ c) - Pi.single ↑t (S.mat s ⬝ᵥ c)
+  U
+
+abbrev transform (S : LinearSystem 𝔽 n) {r : ℕ} (T : Matrix (Fin r) (Fin S.m) 𝔽)
+  : LinearSystem 𝔽 n := of (T * S.mat) (T *ᵥ S.vec)
 
 def computeProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) : LinearSystem 𝔽 n :=
   let N : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c < 0}
@@ -31,6 +47,41 @@ def computeProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) : LinearSys
     | .inl s => S.vec s
     | .inr (s, t) => (S.mat t ⬝ᵥ c) • S.vec s - (S.mat s ⬝ᵥ c) • S.vec t
   of D d
+
+theorem projectionMatrix_positive {S : LinearSystem 𝔽 n} {c : Fin n → 𝔽}
+  : let U := S.projectionMatrix c
+    ∀ i, U i ≥ 0 := by
+  unfold projectionMatrix
+  lift_lets
+  extract_lets _ _ _ _ r p U
+  simp_rw [U, Pi.le_def, of_apply, Pi.zero_apply]
+  intro i j
+  rcases p i with s | ⟨s, t⟩ <;> simp only
+  . rw [Pi.single_apply]
+    split <;> simp only [zero_le_one, le_refl]
+  . simp_rw [Pi.sub_apply, Pi.single_apply]
+    have hs := (mem_filter_univ.mp s.prop).le
+    have ht := (mem_filter_univ.mp t.prop).le
+    split <;> split <;> simp_all
+
+theorem computeProjection_eq_transform {S : LinearSystem 𝔽 n} {c : Fin n → 𝔽}
+  : S.computeProjection c = S.transform (S.projectionMatrix c) := by
+  unfold computeProjection transform
+  lift_lets
+  extract_lets _ _ _ _ r p D d
+  simp_rw [eq_iff_of_m_eq]
+  constructor
+  funext (i : Fin r) (j : Fin n)
+  simp_rw [mul_apply', projectionMatrix, D, of_apply]
+  rotate_left
+  funext (i : Fin r)
+  simp_rw [projectionMatrix, d, mulVec, of_apply]
+  all_goals (
+    rcases p i with s | ⟨s, t⟩ <;> simp only
+    . simp only [single_dotProduct, one_mul]
+    . simp_rw [sub_dotProduct, single_dotProduct]
+      rfl
+  )
 
 @[simp] theorem mem_computeProjection {S : LinearSystem 𝔽 n} {c} {x}
   : x ∈ (computeProjection S c).solutions ↔ x ∈ S.projection c := by
@@ -92,42 +143,19 @@ theorem computeProjection_mat_ortho {S : LinearSystem 𝔽 n} {c : Fin n → �
   . simp only [sub_dotProduct, smul_dotProduct, smul_eq_mul]
     rw [mul_comm, sub_self]
 
-theorem computeProjection_mat_conic {S : LinearSystem 𝔽 n} {c : Fin n → 𝔽}
-  : ∃ U : Matrix _ _ 𝔽,
-    (∀ i, U i ≥ 0)
-    ∧ U * S.mat = (computeProjection S c).mat
-    ∧ U *ᵥ S.vec = (computeProjection S c).vec := by
-  unfold computeProjection
-  lift_lets
-  extract_lets _ _ _ _ r p D d
-  let U : Matrix (Fin r) (Fin S.m) 𝔽 :=
-    Matrix.of fun i ↦
-      match p i with
-      | .inl s => Pi.single s 1
-      | .inr (s, t) => Pi.single ↑s (S.mat t ⬝ᵥ c) - Pi.single ↑t (S.mat s ⬝ᵥ c)
-  exists U
-  constructor
-  . simp_rw [U, Pi.le_def, of_apply, Pi.zero_apply]
-    intro i j
-    rcases p i with s | ⟨s, t⟩ <;> simp only
-    . rw [Pi.single_apply]
-      split <;> simp only [zero_le_one, le_refl]
-    . simp_rw [Pi.sub_apply, Pi.single_apply]
-      have hs := (mem_filter_univ.mp s.prop).le
-      have ht := (mem_filter_univ.mp t.prop).le
-      split <;> split <;> simp_all
-  constructor
-  funext i j
-  simp_rw [mul_apply', U, D, of_apply]
-  rotate_left
-  funext i
-  simp_rw [U, d, mulVec, of_apply]
-  all_goals (
-    rcases p i with s | ⟨s, t⟩ <;> simp only
-    . simp only [single_dotProduct, one_mul]
-    . simp_rw [sub_dotProduct, single_dotProduct]
-      rfl
-  )
+def projectionMatrix' (S : LinearSystem 𝔽 n) {m : ℕ} (c : Matrix (Fin (m + 1)) (Fin n) 𝔽)
+  : let N : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c 0 < 0}
+    let Z : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c 0 = 0}
+    let P : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c 0 > 0}
+    let R := Z ⊕ₗ (N ×ₗ P)
+    let r := Fintype.card R
+    Matrix (Fin r) (Fin S.m) 𝔽 :=
+  match m with
+  | 0 => S.projectionMatrix (c 0)
+  | n + 1 =>
+    let U := S.projectionMatrix (c 0)
+    let U' := S.projectionMatrix' (vecTail c)
+    U' * U
 
 end LinearSystem
 

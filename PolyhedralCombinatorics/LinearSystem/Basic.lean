@@ -48,6 +48,29 @@ variable {𝔽 m n}
 @[match_pattern] abbrev of (A : Matrix (Fin m) (Fin n) 𝔽) (b : Fin m → 𝔽) : LinearSystem 𝔽 n :=
   ⟨m, A, b⟩
 
+theorem mk_val (S : LinearSystem 𝔽 n) : ⟨S.m, S.mat, S.vec⟩ = S := rfl
+
+theorem eq_iff_of_m_eq {S S' : LinearSystem 𝔽 n} (h : S.m = S'.m)
+  : S = S' ↔ S.mat = h ▸ S'.mat ∧ S.vec = h ▸ S'.vec := by
+  have S_eq := (mk_val S).symm
+  have S'_eq := (mk_val S').symm
+  simp_rw [S_eq, S'_eq, mk.injEq]
+  constructor
+  . intro ⟨_, h₁, h₂⟩
+    constructor
+    . apply eq_of_heq
+      transitivity S'.mat
+      . exact h₁
+      . simp
+    . apply eq_of_heq
+      transitivity S'.vec
+      . exact h₂
+      . simp
+  . intro ⟨h₁, h₂⟩
+    constructor
+    . assumption
+    . simp_all
+
 /-- The empty linear system. -/
 @[simp] def empty : LinearSystem 𝔽 n := of vecEmpty vecEmpty
 
