@@ -28,8 +28,20 @@ def projectionMatrix (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) :=
       | .inr (s, t) => Pi.single ↑s (S.mat t ⬝ᵥ c) - Pi.single ↑t (S.mat s ⬝ᵥ c)
   U
 
-abbrev transform (S : LinearSystem 𝔽 n) {r : ℕ} (T : Matrix (Fin r) (Fin S.m) 𝔽)
+def transform (S : LinearSystem 𝔽 n) {r : ℕ} (T : Matrix (Fin r) (Fin S.m) 𝔽)
   : LinearSystem 𝔽 n := of (T * S.mat) (T *ᵥ S.vec)
+
+@[simp]
+theorem transform_m (S : LinearSystem 𝔽 n) {r} (T : Matrix (Fin r) (Fin S.m) 𝔽)
+  : (S.transform T).m = r := rfl
+
+@[simp]
+theorem transform_mat (S : LinearSystem 𝔽 n) {r} (T : Matrix (Fin r) (Fin S.m) 𝔽)
+  : (S.transform T).mat = T * S.mat := rfl
+
+@[simp]
+theorem transform_vec (S : LinearSystem 𝔽 n) {r} (T : Matrix (Fin r) (Fin S.m) 𝔽)
+  : (S.transform T).vec = T *ᵥ S.vec := rfl
 
 def computeProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) : LinearSystem 𝔽 n :=
   let N : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c < 0}
@@ -48,7 +60,7 @@ def computeProjection (S : LinearSystem 𝔽 n) (c : Fin n → 𝔽) : LinearSys
     | .inr (s, t) => (S.mat t ⬝ᵥ c) • S.vec s - (S.mat s ⬝ᵥ c) • S.vec t
   of D d
 
-theorem projectionMatrix_positive {S : LinearSystem 𝔽 n} {c : Fin n → 𝔽}
+theorem projectionMatrix_nonneg {S : LinearSystem 𝔽 n} {c : Fin n → 𝔽}
   : let U := S.projectionMatrix c
     ∀ i, U i ≥ 0 := by
   unfold projectionMatrix
@@ -144,18 +156,13 @@ theorem computeProjection_mat_ortho {S : LinearSystem 𝔽 n} {c : Fin n → �
     rw [mul_comm, sub_self]
 
 def projectionMatrix' (S : LinearSystem 𝔽 n) {m : ℕ} (c : Matrix (Fin (m + 1)) (Fin n) 𝔽)
-  : let N : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c 0 < 0}
-    let Z : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c 0 = 0}
-    let P : Finset (Fin S.m) := {i | S.mat i ⬝ᵥ c 0 > 0}
-    let R := Z ⊕ₗ (N ×ₗ P)
-    let r := Fintype.card R
-    Matrix (Fin r) (Fin S.m) 𝔽 :=
+  : (r : ℕ) × Matrix (Fin r) (Fin S.m) 𝔽 :=
   match m with
-  | 0 => S.projectionMatrix (c 0)
-  | n + 1 =>
+  | 0 => ⟨_, S.projectionMatrix (c 0)⟩
+  | _ + 1 =>
     let U := S.projectionMatrix (c 0)
-    let U' := S.projectionMatrix' (vecTail c)
-    U' * U
+    let ⟨_, U'⟩ := S.transform_m _ ▸ (S.transform U).projectionMatrix' (vecTail c)
+    ⟨_, U' * U⟩
 
 end LinearSystem
 

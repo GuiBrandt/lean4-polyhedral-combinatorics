@@ -40,6 +40,10 @@ theorem mem_fourierMotzkin  {S : LinearSystem 𝔽 n} {j : Fin n} :
 def fourierMotzkinElim0 (S : LinearSystem 𝔽 (n + 1)) : LinearSystem 𝔽 n :=
   (S.fourierMotzkin 0).elim0
 
+theorem fourierMotzkinElim0_projectionMatrix (S : LinearSystem 𝔽 (n + 1))
+  : ∀ (i : Fin _),
+    (S.projectionMatrix x_[0] * S.mat) i = vecCons 0 (S.fourierMotzkinElim0.mat i) := sorry
+
 theorem mem_fourierMotzkinElim0 {S : LinearSystem 𝔽 (n + 1)} {x : Fin n → 𝔽}
   : x ∈ S.fourierMotzkinElim0.solutions ↔ ∃ x₀ : 𝔽, vecCons x₀ x ∈ S.solutions := by
   unfold fourierMotzkinElim0
@@ -75,5 +79,10 @@ def fourierMotzkinElimRec {n : ℕ} (S : LinearSystem 𝔽 n) : LinearSystem �
     transitivity
     . apply ih
     . exact S.fourierMotzkinElim0_eq_empty_iff
+
+@[simp] theorem recElimDimensions_eq_empty_iff_exists_neg (S : LinearSystem 𝔽 n)
+  : S.fourierMotzkinElimRec.solutions = ∅ ↔ ∃ i, S.fourierMotzkinElimRec.vec i < 0 := by
+  simp_rw [solutions, Set.eq_empty_iff_forall_not_mem, Set.mem_setOf, mulVec_empty, forall_const,
+    Pi.le_def, not_forall, Pi.zero_apply, not_le]
 
 end LinearSystem
